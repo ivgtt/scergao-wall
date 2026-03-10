@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>上蔡二高 · 校园墙</title>
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <style>
+        :root { --primary: #ff7675; --glass: rgba(255, 255, 255, 0.75); }
+        #fixed-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; background: #333 url('https://img.xjh.me/random_img.php?type=bg&ctype=acg&return=302&device=mobile') center/cover; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.05); z-index: -1; }
+        body { font-family: sans-serif; margin: 0; padding-bottom: 220px; }
+        .glass-blur { backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .header { position: sticky; top: 0; z-index: 100; background: rgba(255, 255, 255, 0.85); padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 1.1rem; margin: 0; color: var(--primary); }
+        .stats-bar { padding: 12px 15px; display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; }
+        .stat-chip { background: var(--glass); padding: 8px 16px; border-radius: 20px; font-size: 13px; flex-shrink: 0; }
+        .stat-chip.active { background: var(--primary); color: white; }
+        .feed { padding: 0 15px; }
+        .post-card { background: var(--glass); border-radius: 20px; padding: 18px; margin-bottom: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .post-panel { position: fixed; bottom: 20px; left: 15px; right: 15px; background: rgba(255, 255, 255, 0.8); border-radius: 28px; padding: 18px; z-index: 1000; }
+        .input-top input, .input-top select { border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 10px; font-size: 13px; background: rgba(255,255,255,0.5); }
+        .send-btn { background: var(--primary); color: white; border: none; width: 100%; padding: 14px; border-radius: 16px; font-weight: bold; }
+        .type-tag { font-size: 10px; color: white; padding: 2px 8px; border-radius: 6px; margin-right: 5px; }
+        .tag-表白 { background: #ff7675; } .tag-求助 { background: #0984e3; } .tag-分享 { background: #6c5ce7; }
+    </style>
+</head>
+<body>
+
+<div id="fixed-bg"></div>
+<div class="overlay"></div>
+
+<div class="header glass-blur">
+    <h1>上蔡二高校园墙 (联网版)</h1>
+    <button onclick="fetchPosts()" style="background:none; border:none; font-size:18px;">🔄</button>
+</div>
+
+<div class="stats-bar" id="statsBar">
+    <div class="stat-chip glass-blur active">点击刷新加载数据...</div>
+</div>
+
+<div class="feed" id="postFeed"></div>
+
+<div class="post-panel glass-blur">
+    <div class="input-top" style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <input type="text" id="nameIn" placeholder="昵称" style="width: 70px;">
+        <select id="typeIn"><option value="分享">✨ 分享</option><option value="表白">❤️ 表白</option><option value="求助">🆘 求助</option></select>
+        <input type="text" id="classIn" placeholder="班级" style="flex: 1;">
+    </div>
+    <textarea id="contentIn" style="width:100%; border:none; background:transparent; outline:none; min-height:50px;" placeholder="在此发布，全校可见..."></textarea>
+    <button class="send-btn" onclick="sendPost()">发布到云端</button>
+</div>
+
+<script>
+    // --- 核心配置：请替换为你自己的凭证 ---
+    AV.init({
+        appId: "你的AppID",
+        appKey: "你的AppKey",
+        serverURL: "你的服务器地址"
+    });
+
+    const Post = AV.Object.extend('Post');
+
+    // 1. 从云端获取数据
+    async function fetchPosts() {
+        const query = new AV.Query('Post');
+        query.descending('createdAt'); // 按时间倒序
+        query.limit(50); // 每次拉取最新50条
+        try {
+            const results = await query.find();
+            render(results);
+        } catch (error) {
+            alert('获取失败，请检查配置或网络');
+        }
+    }
+
+    // 2. 发送数据到云端
+    async function sendPost() {
+        const name = document.getElementById('nameIn').value || '匿名';
+        const cls = document.getElementById('classIn').value || '校友';
+        const type = document.getElementById('typeIn').value;
+        const content = document.getElementById('contentIn').value;
+
+        if (!content.trim()) return alert('内容不能为空');
+
+        const post = new Post();
+        post.set('name', name);
+        post.set('class', cls);
+        post.set('type', type);
+        post.set('content', content);
+
+        try {
+            await post.save();
+            document.getElementById('contentIn').value = '';
+            fetchPosts(); // 发布成功后刷新列表
+        } catch (error) {
+            alert('发布失败');
+        }
+    }
+
+    function render(data) {
+        const feed = document.getElementById('postFeed');
+        feed.innerHTML = data.map(item => {
+            const attr = item.attributes;
+            return `
+                <div class="post-card glass-blur">
+                    <div style="display:flex; align-items:center; margin-bottom:12px;">
+                        <div style="width:38px; height:38px; border-radius:50%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; margin-right:12px;">${attr.name[0]}</div>
+                        <div>
+                            <span style="font-weight:bold; font-size:15px;">${attr.name}</span>
+                            <div style="margin-top:2px;">
+                                <span class="type-tag tag-${attr.type}">${attr.type}</span>
+                                <span style="font-size:11px; color:#666;">📍 ${attr.class}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="font-size:15px; color:#111; line-height:1.7;">${attr.content}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 初始化加载
+    fetchPosts();
+</script>
+</body>
+</html>
